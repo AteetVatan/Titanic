@@ -16,6 +16,7 @@ class UserInputKeys(Enum):
     SPEED_HISTOGRAM = "speed_histogram"
     SHIPS_IN_OCEAN = "ships_in_ocean"
     SHOW_MAP = "show_map"
+    Exit = "exit"
 
 
 class JsonKeys(Enum):

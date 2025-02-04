@@ -10,8 +10,12 @@ CONST_SHIP_JSON_FILE = "ships_data.json"
 
 CONST_PROMPT_DICT = {
     'welcome_msg': f"Welcome to the Ships CLI! Enter "
-                   f"'{uk.HELP.value}' to view available commands.\n",
-    'input_error': 'Unknown command {key}\n',
+                   f"'{uk.HELP.value}' to view available commands:\n",
+    'input_msg': f"\nPlease Enter New Command or"
+                 f" For Commands Enter '{uk.HELP.value}':\n",
+    'input_error': "Unknown command {key} ,"
+                   f"Please Enter '{uk.HELP.value}' to view available commands:\n",
+    'empty_input_error': f"Please Enter '{uk.HELP.value}' to view available commands:\n",
     'available_commands': 'Available commands:\n'}
 
 CMD_METHODS_DICT = None
@@ -26,33 +30,8 @@ def main_wrapper():
 # region User Interaction Methods
 def user_process() -> None:
     """Function to render and start the user interaction"""
-    validate_user_input_help()
-    user_method = get_user_input_method(uk.HELP.value)
-    user_input = user_method()
     try:
-        while True:
-            user_method = get_user_input_method(user_input)
-            if not user_method:
-                user_input = input(CONST_PROMPT_DICT['input_error'].format(key=user_input))
-                continue
-
-            if user_input == uk.HELP.value:
-                user_input = user_method()
-                continue
-            if user_input in [uk.SHOW_COUNTRIES.value,
-                              uk.SHIPS_BY_TYPES.value,
-                              uk.SHIPS_IN_OCEAN.value,
-                              uk.SHOW_MAP.value,
-                              uk.SPEED_HISTOGRAM.value]:
-                user_method()
-                break
-            if user_input.split()[0] in [uk.TOP_COUNTRIES.value, uk.SEARCH_SHIP_NAME.value]:
-                args = user_input.split()[1]
-                user_method(args)
-                break
-
-    except IndexError:
-        print("user_process: Invalid data Index.")
+        titanic_cli()
     except (RuntimeError, SystemError) as err:
         print(f"user_process: error : {err}")
 
@@ -64,19 +43,11 @@ def get_user_input_method(user_input: str):
     :return:
     """
     try:
-        user_input = user_input.strip()
-        if len(user_input.split()) > 1 and (
-                user_input.split()[0] == uk.TOP_COUNTRIES.value
-                or user_input.split()[0] == uk.SEARCH_SHIP_NAME.value):
+        valid_input, method_by_argument = user_input_valid_and_method_by_arguments(user_input)
+        if valid_input and method_by_argument:
             return get_user_function(user_input.split()[0])
-        if user_input in [uk.HELP.value,
-                          uk.SHOW_COUNTRIES.value,
-                          uk.SHIPS_BY_TYPES.value,
-                          uk.SHIPS_IN_OCEAN.value,
-                          uk.SHOW_MAP.value,
-                          uk.SPEED_HISTOGRAM.value]:
+        elif valid_input:
             return get_user_function(user_input)
-
     except IndexError:
         print("get_user_input_method: Invalid data Index.")
     except (RuntimeError, SystemError) as err:
@@ -93,18 +64,65 @@ def get_user_function(function_key: str):
     return CMD_METHODS_DICT[function_key][1]
 
 
-def validate_user_input_help():
+def titanic_cli():
     """
     Method to validate that the user has entered 'help' to proceed or
     repeat the prompt.
     :return None:
     """
-    cmd_input = input(CONST_PROMPT_DICT['welcome_msg']).strip()
+    user_input = input(CONST_PROMPT_DICT['welcome_msg']).lower().strip()
     while True:
-        if cmd_input != uk.HELP.value:
-            cmd_input = input(CONST_PROMPT_DICT['input_error'].format(key=cmd_input))
-        else:
+        if user_input == uk.Exit.value:
             break
+
+        if user_input == "":
+            user_input = input(CONST_PROMPT_DICT['empty_input_error']).lower().strip()
+            continue
+
+        if not user_input_valid_and_method_by_arguments(user_input)[0]:
+            user_input = input(CONST_PROMPT_DICT['input_error'].format(key=user_input)).lower().strip()
+            continue
+
+        user_method = get_user_input_method(user_input)
+        execute_method(user_input, user_method)
+        user_input = input(CONST_PROMPT_DICT['input_msg']).lower().strip()
+
+
+def execute_method(user_input, user_method):
+    """ This Methods Executes the User Operations"""
+    if user_input == uk.Exit.value:
+        return
+
+    valid_input, method_by_argument = user_input_valid_and_method_by_arguments(user_input)
+    if valid_input and method_by_argument:
+        args = user_input.split()[1]
+        user_method(args)
+    elif valid_input:
+        user_method()
+
+
+def user_input_valid_and_method_by_arguments(user_input) -> (bool, bool):
+    """
+    The Method Return a tuple of (valid_input,method_by_argument).
+    :param user_input: The User Input
+    :return: Tuple(valid_input,method_by_argument)
+    valid_input : The User Input is valid.
+    method_by_argument : The User Operation Methods requires Arguments.
+    """
+    valid_input = method_by_argument = False
+    user_input = user_input.strip()
+    if user_input == "":
+        return valid_input, method_by_argument
+    elif user_input in [uk.HELP.value,
+                        uk.SHOW_COUNTRIES.value,
+                        uk.SHIPS_BY_TYPES.value,
+                        uk.SHIPS_IN_OCEAN.value,
+                        uk.SHOW_MAP.value,
+                        uk.SPEED_HISTOGRAM.value]:
+        valid_input = True
+    elif len(user_input.split()) > 1 and user_input.split()[0] in [uk.TOP_COUNTRIES.value, uk.SEARCH_SHIP_NAME.value]:
+        valid_input = method_by_argument = True
+    return valid_input, method_by_argument
 
 
 # endregion
@@ -126,7 +144,8 @@ def get_funtions_dict() -> {}:
                  search_ships_names),
             uk.SPEED_HISTOGRAM.value: (uk.SPEED_HISTOGRAM.value, show_speed_histogram),
             uk.SHIPS_IN_OCEAN.value: (uk.SHIPS_IN_OCEAN.value, ships_in_ocean),
-            uk.SHOW_MAP.value: (uk.SHOW_MAP.value, show_map)}
+            uk.SHOW_MAP.value: (uk.SHOW_MAP.value, show_map),
+            uk.Exit.value: (uk.Exit.value, lambda : False)}
 
 
 def show_help() -> str:
@@ -139,9 +158,10 @@ def show_help() -> str:
         for cmd_tuple in CMD_METHODS_DICT.values():
             cmd_str += (cmd_tuple[0] + "\n")
         cmd_str += "\n"
+        cmd_str = cmd_str[:-1]
     except IndexError:
         print("Invalid data Index.")
-    return input(cmd_str).strip()
+    return print(cmd_str)
 
 
 def show_countries():
